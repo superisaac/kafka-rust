@@ -69,7 +69,7 @@ use error::{ErrorKind, KafkaCode, Result};
 use client::fetch;
 
 // public re-exports
-pub use client::fetch::Message;
+pub use client::fetch::{Message, Response};
 pub use client::FetchOffset;
 pub use client::GroupOffsetStorage;
 pub use self::builder::Builder;
@@ -169,7 +169,26 @@ impl Consumer {
         &self.config.group
     }
 
-    // ~ returns (number partitions queried, fecth responses)
+    pub fn get_latest_offset(&mut self, topic:&str, partition:usize) -> Result<i64> {
+        let offsets = match self.client.fetch_topic_offsets(topic, FetchOffset::Latest) {
+            Ok(v) => {v},
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        return Ok(offsets[partition].offset);
+    }
+
+    pub fn fetch_messages_for_partition(&mut self, topic:&str, partition:i32, offset:i64) -> Result<MessageSets> {
+        let resps = self.client.fetch_messages_for_partition(
+            &FetchPartition::new(
+                topic,
+                partition,
+                offset));
+        self.process_fetch_responses(1, try!(resps))
+    }
+
+    // ~ returns (number partitions queried, fetch responses)
     fn fetch_messages(&mut self) -> (u32, Result<Vec<fetch::Response>>) {
         // ~ if there's a retry partition ... fetch messages just for
         // that one. Otherwise try to fetch messages for all assigned
@@ -216,7 +235,7 @@ impl Consumer {
     // ~ num_partitions_queried: the original number of partitions requested/queried for
     //   the responses
     // ~ resps: the responses to post process
-    fn process_fetch_responses(&mut self,
+    pub fn process_fetch_responses(&mut self,
                                num_partitions_queried: u32,
                                resps: Vec<fetch::Response>)
                                -> Result<MessageSets> {

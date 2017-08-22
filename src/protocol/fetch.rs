@@ -176,7 +176,7 @@ pub struct Response {
     // Response have to a lifetime parameter as well.  The field is
     // exposed only through an accessor which binds the exposed
     // lifetime to the lifetime of the Response instance.
-    topics: Vec<Topic<'static>>,
+    pub topics: Vec<Topic<'static>>,
 }
 
 impl Response {
